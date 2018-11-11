@@ -1,4 +1,4 @@
-#! /home/r/python/lwpRoots/bin/python
+#! env/bin/python
 import numpy as np
 import json
 import os, sys, argparse
@@ -6,6 +6,7 @@ import os, sys, argparse
 
 import photoMaker
 
+# Store complex numbers in json
 def encode_complex(z):
 	if isinstance(z, complex):
 		return (z.real,z.imag)
@@ -13,12 +14,14 @@ def encode_complex(z):
 		type_name = z.__class_.__name__
 		raise TypeError("Object of type '{type_name}' is not JSON serializable")
 
+# Convert binary lwp to lwp
 def zeroToMinusOne(x):
 	if x == 0:
 		return -1
 	else:
 		 return x
 
+# Returns array of roots of lwp with given degree and ConnectionAbortedError
 def rootsOf(coeffCode, degree):
 	degreeCode = '0'+str(degree+1)+'b'
 	coefficientsStringArray = list(format(coeffCode, degreeCode))
@@ -111,30 +114,46 @@ class App:
 		if (self.finishedDegree == True):
 			self.nextDegree()
 
-	def run(self):
-		while(self.blocksProcessed < 100):
+	def run(self, count):
+		while(self.blocksProcessed < count):
 			self.fillBlockBuffer()
 			self.updateState()
 			self.flushBuffer()
+			print('Just finished block ' + str(self.blocksProcessed) + '\n')
 
-	def main(self):
+	def parseArgs(self, args=None):
 		parser = argparse.ArgumentParser()
 		parser.add_argument('--progress', help = 'Display the last saved polynomials code and degree', action = 'store_true')
 		parser.add_argument('--render', help = 'Create an image of the roots.', action = 'store_true')
-		args = parser.parse_args()
+		parser.add_argument('--split', help = 'Split a given number of blocks.', type = int, nargs = 1)
+		return parser.parse_args(args)
+
+	def processArgs(self, args):
 		if args.progress:
 			stateFile = open('state.json', 'r')
 			state = json.load(stateFile)
 			stateFile.close()
-			outputString = 'Last polynomial to be processed ~ Degree: ' + str(state['Degree']) + '     CoeffCode: ' + str(state['CoeffCode']) + '\n'
+			outputString = 'Last polynomial to be split: Degree = ' + str(state['Degree']) + ' ,  Coeff. Code = ' + str(state['CoeffCode'])
 			print(outputString)
+
 		if args.render:
 			image = photoMaker.createImage()
-			image.save('roots.png', 'PNG')
-			print('Rendered image succesfully. Stored as roots.png\n')
-		else:
-			print('Error: No argument provided. Type -')
+			stateFile = open('state.json', 'r')
+			state = json.load(stateFile)
+			stateFile.close()
+			fileName = 'render_D'+str(state['Degree'])+'_C'+str(state['CoeffCode'])+'.png'
+			image.save(fileName,'PNG')
+			print('Render was succesful! Saved image as ' + fileName)
 
+		if args.split:
+			count = args.split[0]
+			print('Preparing to split' + str(count) + ' blocks.\n')
+			self.run(count)
+
+
+	def main(self):
+		args = self.parseArgs(sys.argv[1:])
+		self.processArgs(args)
 
 if __name__ == "__main__":
 	app = App()
